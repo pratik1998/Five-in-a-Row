@@ -1,0 +1,21 @@
+#board {
+    border: 1px solid black;
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    background-color: #966F33;
+}
+
+#game-heading {
+    text-align: center;
+}
+
+#player-info {
+    text-align: center;
+}
+
+body {
+    background-color: aqua;
+}
