@@ -1,0 +1,23 @@
+{
+  "name": "five-in-a-row",
+  "version": "1.0.0",
+  "description": "Five in a Row is traditionally game played with GO pieces (black and white stones) on a go board with 19x19 intersections.",
+  "main": "client.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratik1998/Five-in-a-Row.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pratik1998/Five-in-a-Row/issues"
+  },
+  "homepage": "https://github.com/pratik1998/Five-in-a-Row#readme",
+  "dependencies": {
+    "express": "^4.18.1",
+    "socket.io": "^4.5.2"
+  }
+}
