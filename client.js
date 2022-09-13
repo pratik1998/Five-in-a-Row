@@ -1,3 +1,6 @@
+import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+const socket = io("http://localhost:8080");
+
 const BOARD_WIDTH = 700;
 const BOARD_HEIGHT = 700;
 const GRID_SIZE = 20;
@@ -100,21 +103,18 @@ function checkWinner() {
     return false;
 }
 
-function addPiece(event) {
-    const canvas = document.getElementById('board');
-    const canvasTop = canvas.offsetTop;
-    const canvasLeft = canvas.offsetLeft;
-    const x = event.pageX - canvasLeft;
-    const y = event.pageY - canvasTop;
-    approximatePosition = getApproximatePosition(x, y);
-    gridApproxPosition = getGridIntersection(approximatePosition[0], approximatePosition[1]);
-    if (!checkPieceExists(approximatePosition[1], approximatePosition[0])) {
+function updateGrid(x, y, emit = false) {
+    let gridApproxPosition = getGridIntersection(y, x);
+    if (!checkPieceExists(x, y)) {
+        const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d');
         ctx.beginPath();
         ctx.arc(gridApproxPosition[0], gridApproxPosition[1], HORIZONTAL_STEP_SIZE/2, 0, 2 * Math.PI, false);
         ctx.fillStyle = turn % 2 === 0 ? 'black' : 'white';
         ctx.fill();
-        GRID[approximatePosition[1]][approximatePosition[0]] = turn % 2;
+        GRID[x][y] = turn % 2;
+        if(emit)
+            socket.emit('move', {x: x, y: y, turn: turn});
         if(checkWinner()) {
             alert('Player with ' + (turn % 2 === 0 ? 'black' : 'white') + ' pieces wins!');
         }
@@ -125,6 +125,16 @@ function addPiece(event) {
     } else {
         alert('Piece already exists at this position.\nPlesae choose another position.');
     }
+}
+
+function addPiece(event) {
+    const canvas = document.getElementById('board');
+    const canvasTop = canvas.offsetTop;
+    const canvasLeft = canvas.offsetLeft;
+    const x = event.pageX - canvasLeft;
+    const y = event.pageY - canvasTop;
+    let approximatePosition = getApproximatePosition(x, y);
+    updateGrid(approximatePosition[1], approximatePosition[0], true);
 }
 
 function initializeBoard() {
@@ -155,3 +165,11 @@ function initializeBoard() {
     ctx.stroke();
     canvas.addEventListener('click', addPiece, false);
 }
+
+window.onload = function() {
+    initializeBoard();
+}
+
+socket.on('move', function(data) {
+    updateGrid(data.x, data.y);
+});
