@@ -19,3 +19,16 @@
 body {
     background-color: aqua;
 }
+
+#join-code input {
+    width: 50px;
+    text-align: center;
+}
+
+#join-game {
+    align-content: center;
+}
+
+#create-game {
+    align-content: center;
+}

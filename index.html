@@ -3,14 +3,26 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Five In A Row</title>
-	<link rel="stylesheet" href="client.css" >
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
+    <link rel="stylesheet" href="client.css" >
 	<script type="module" src="client.js"></script>
 </head>
 <body>
     <div id="container">
-        <h2 id="game-heading">Welcome to Five-In-A-Row Game</h2>
-        <h3 id="player-info">Player with black pieces turn</h3>
-        <canvas id="board" width="700" height="700"></canvas>  
+        <h2 id="game-heading">Welcome <br> to <br> Five-In-A-Row <br> Game</h2>
+        <form>
+            <div class="text-center">
+                <input type="button" value="Create Game" class="btn btn-primary" id="create-game">
+            </div>
+            <div class="text-center">
+                <div class="col-xs-2">
+                    <input type="text" name="game-code" id="game-code">
+                </div>
+            </div>
+            <div class="form-group text-center">
+                <input type="button" value="Join Game" class="btn btn-primary" id="join-game">
+            </div>
+        </form>
     </div>
 </body>
 </html>
