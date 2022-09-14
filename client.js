@@ -1,13 +1,12 @@
+const host = window.location.host;
+
 function createGame() {
-    console.log('Game created');
-    window.location.replace("http://localhost:8080/create-game");
+    window.location.replace(`http://${host}/create-game`);
 }
 
 function joinGame() {
-    console.log('Game joined');
     const gameCode = document.getElementById('game-code').value;
-    console.log('Game code: ' + gameCode);
-    window.location.replace("http://localhost:8080/" + gameCode);
+    window.location.replace(`http://${host}/${gameCode}`);
 }
 
 window.onload = function() {

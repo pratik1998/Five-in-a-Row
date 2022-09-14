@@ -17,6 +17,7 @@ const socketToPlayerIdMap = new Map();
 const gameCodeToPlayers = new Map();
 const gameCodeSocketToTurnMap = new Map();
 const GRID_SIZE = 20;
+const REQUIRED_CONSECUTIVE_PIECES = 5;
 
 function makeUniqueGameIds(length) {
     var result           = '';
@@ -27,6 +28,17 @@ function makeUniqueGameIds(length) {
  charactersLength));
    }
    return result;
+}
+
+function httpGetAsync(theUrl, callback)
+{
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() { 
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+            callback(xmlHttp.responseText);
+    }
+    xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+    xmlHttp.send(null);
 }
 
 function createGrid() {
@@ -40,8 +52,92 @@ function createGrid() {
     return grid;
 }
 
+function checkPieceExists(GRID, x, y) {
+    if(GRID[x][y] == -1) {
+        return false
+    }
+    return true;
+}
+
+function checkValidTurn(gameState, playerId) {
+    return (gameState.turn%2) === playerId;
+}
+
+function checkVerticalWin(i, j, GRID) {
+    if (i < 0 || i + REQUIRED_CONSECUTIVE_PIECES - 1 >= GRID_SIZE || j < 0 || j >= GRID_SIZE) {
+        return false;
+    }
+    if(GRID[i][j] === -1)
+        return false;
+    for(let k=i; k < i + REQUIRED_CONSECUTIVE_PIECES; k++) {
+        if (GRID[k][j] !== GRID[i][j])
+            return false;
+    }
+    return true;
+}
+
+function checkHorizontalWin(i, j, GRID) {
+    if (i < 0 || i >= GRID_SIZE || j < 0 || j + REQUIRED_CONSECUTIVE_PIECES - 1 >= GRID_SIZE) {
+        return false;
+    }
+    if(GRID[i][j] === -1)
+        return false;
+    for(let k=j; k < j + REQUIRED_CONSECUTIVE_PIECES; k++) {
+        if (GRID[i][k] !== GRID[i][j])
+            return false
+    }
+    return true;
+}
+
+function checkDiagonalWin(i, j, GRID) {
+    if (i < 0 || i + REQUIRED_CONSECUTIVE_PIECES - 1 >= GRID_SIZE || j < 0 || j + REQUIRED_CONSECUTIVE_PIECES - 1 >= GRID_SIZE) {
+        return false;
+    }
+    if(GRID[i][j] === -1)
+        return false;
+    for(let k=0; k < REQUIRED_CONSECUTIVE_PIECES; k++) {
+        if (GRID[i+k][j+k] !== GRID[i][j])
+            return false
+    }
+    return true;
+}
+
+function checkReverseDiagonalWin(i, j, GRID) {
+    if (i < REQUIRED_CONSECUTIVE_PIECES - 1 || i >= GRID_SIZE || j < 0 || j + REQUIRED_CONSECUTIVE_PIECES - 1 >= GRID_SIZE) {
+        return false;
+    }
+    if(GRID[i][j] === -1)
+        return false;
+    for(let k=0; k < REQUIRED_CONSECUTIVE_PIECES; k++) {
+        if (GRID[i-k][j+k] !== GRID[i][j])
+            return false
+    }
+    return true;
+}
+
+function checkWinner(GRID) {
+    for (let i=0; i < GRID_SIZE; i++) {
+        for(let j=0; j < GRID_SIZE; j++) {
+            if (checkHorizontalWin(i, j, GRID) || checkVerticalWin(i, j, GRID) || checkDiagonalWin(i, j, GRID) || checkReverseDiagonalWin(i, j, GRID)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 function getGameStateByGameCode(gameCode) {
     return gameCodeToStateMap.get(gameCode);
+}
+
+function validateMove(gameState, playerId, x, y) {
+    const GRID = gameState.grid;
+    if(!checkValidTurn(gameState, playerId)) {
+        return 'Not your turn';
+    } else if(checkPieceExists(GRID, x, y)) {
+        return 'Piece already exists';
+    }
+    return 'Move accepted';
 }
 
 app.get('/', (req, res) => {
@@ -92,12 +188,14 @@ app.get('/:gameCode', (req, res) => {
     }
 })
 
-app.post('/get-game-state', (req, res) => {
-    const gameCode = req.body.gameCode;
+app.get('/get-game-state/:gameCode', (req, res) => {
+    const gameCode = req.params.gameCode;
     if(gameCodeSet.has(gameCode)) {
         const gameState = getGameStateByGameCode(gameCode);
-        console.log('Game state: ' + gameState);
-        res.send(gameState.grid);
+        res.send({ 
+            grid: gameState.grid,
+            turn: gameState.turn,
+        });
     } else {
         res.sendStatus(404);
     }
@@ -117,16 +215,27 @@ io.on('connection', (socket) => {
     })
 
     socket.on('move', (data) => {
-        console.log(data)
-        console.log('Game code: ' + data.gameCode);
-        const gameState = getGameStateByGameCode(data.gameCode);
-        console.log('Game state: ' + gameState);
-        gameState.grid[data.x][data.y] = data.playerId;
-        socket.broadcast.emit('move', {x: data.x, y: data.y});
+        const x = data.x;
+        const y = data.y;
+        const gameCode = data.gameCode;
+        const playerId = data.playerId;
+        const gameState = getGameStateByGameCode(gameCode);
+        const currentTurn = gameState.turn;
+        const validation = validateMove(gameState, playerId, x, y);
+        if (validation !== 'Move accepted') {
+            io.to(socket.id).emit('move-ack', {x: data.x, y: data.y, status: 'failure', msg: validation});
+        } else {
+            gameState.grid[x][y] = playerId;
+            gameState.turn++;
+            gameState.nextPlayerTurn = (gameState.nextPlayerTurn + 1) % 2;
+            io.emit('move-ack', { x: data.x, y: data.y, turn: currentTurn, status: 'success', msg: 'Move accepted'});
+            if(checkWinner(gameState.grid)) {
+                io.emit('winner', { winner: playerId });
+            }
+        }
     })
 
     socket.on('initialize', (data) => {
-        console.log('Initializing game', data);
         if (socketToGameCodeMap.has(socket.id)) {
             const gameCodes = socketToGameCodeMap.get(socket.id);
             if (gameCodes.has(data.gameCode)) {
@@ -153,9 +262,7 @@ io.on('connection', (socket) => {
             const gameState = getGameStateByGameCode(data.gameCode);
             gameState.numPlayers++;
             gameState.players.push(socket.id);
-            // socket.broadcast.emit('initialize', {playerId: gameState.numPlayers - 1});
+            io.to(socket.id).emit('initialize', {playerId: gameState.numPlayers - 1, turn: gameState.turn, socketID: socket.id});
         }
-        console.log(data);
-        console.log(socketToGameCodeMap);
     })
 })

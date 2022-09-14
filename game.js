@@ -1,16 +1,16 @@
 import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
-const socket = io("http://localhost:8080");
+const host = window.location.host;
+const socket = io(`http://${host}`);
 
 const BOARD_WIDTH = 700;
 const BOARD_HEIGHT = 700;
 const GRID_SIZE = 20;
-const GRID = []
+let GRID = []
 const HORIZONTAL_STEP_SIZE = BOARD_WIDTH/GRID_SIZE;
 const VERTICAL_STEP_SIZE = BOARD_HEIGHT/GRID_SIZE;
 const REQUIRED_CONSECUTIVE_PIECES = 5;
 
-var turn = 0;
-var piecesPositions = [];
+var playerId = -1;
 
 function getApproximatePosition(x, y) {
     const HORIZONTAL_STEP_SIZE = BOARD_WIDTH/(GRID_SIZE * 2);
@@ -30,7 +30,7 @@ function getGridIntersection(x, y) {
 }
 
 function checkPieceExists(x, y) {
-    if(GRID[x][y] == -1) {
+    if(GRID[x][y] === -1) {
         return false
     }
     return true;
@@ -103,9 +103,14 @@ function checkWinner() {
     return false;
 }
 
-function updateGrid(x, y, emit = false) {
+function updateTurnInfo(turn) {
+    const playerInfo = document.getElementById('turn');
+    playerInfo.innerHTML = `Current Turn: ${turn % 2 === playerId ? 'Your' : 'Opponent'}'s`;
+}
+
+function updateGrid(x, y, turn, forceUpdate=false) {
     let gridApproxPosition = getGridIntersection(y, x);
-    if (!checkPieceExists(x, y)) {
+    if (forceUpdate || !checkPieceExists(x, y)) {
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d');
         ctx.beginPath();
@@ -113,17 +118,8 @@ function updateGrid(x, y, emit = false) {
         ctx.fillStyle = turn % 2 === 0 ? 'black' : 'white';
         ctx.fill();
         GRID[x][y] = turn % 2;
-        if(emit){
-            const gameCode = getGameCodeFromURL()
-            socket.emit('move', {x, y, gameCode, playerId: socket.id});
-        }
-        if(checkWinner()) {
-            alert('Player with ' + (turn % 2 === 0 ? 'black' : 'white') + ' pieces wins!');
-        }
         turn++;
-        const playerInfo = document.getElementById('player-info');
-        playerInfo.innerHTML = 'Player with ' + (turn % 2 === 0 ? 'black' : 'white') + ' pieces turn';
-        
+        updateTurnInfo(turn);
     } else {
         alert('Piece already exists at this position.\nPlesae choose another position.');
     }
@@ -136,15 +132,15 @@ function addPiece(event) {
     const x = event.pageX - canvasLeft;
     const y = event.pageY - canvasTop;
     let approximatePosition = getApproximatePosition(x, y);
-    updateGrid(approximatePosition[1], approximatePosition[0], true);
+    const gameCode = getGameCodeFromURL();
+    socket.emit('move', {x: approximatePosition[1], y: approximatePosition[0], gameCode, playerId: playerId});
 }
 
 function initializeGrid() {
     for(let i=0; i < GRID_SIZE; i++) {
-        GRID[i] = [];
         for(let j=0; j < GRID_SIZE; j++) {
             if(GRID[i][j] !== -1) {
-                updateGrid(i, j);
+                updateGrid(i, j, GRID[i][j], true);
             }
         }
     }
@@ -173,25 +169,6 @@ function initializeBoard() {
         ctx.lineTo(BOARD_WIDTH + padding, 0.5 + x + padding);
     }
 
-    const playerId = socket.id;
-    const gameCode = getGameCodeFromURL();
-    console.log('Before emit', playerId, gameCode);
-
-    socket.emit('initialize', {gameCode: gameCode, playerId: playerId});
-    console.log('POST Reques Body', {playerId: playerId, gameCode: gameCode});
-    let xhr = new XMLHttpRequest();
-    xhr.open("POST", 'http://localhost:8080/get-game-state', false);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify({
-        playerId: socket.id,
-        gameCode: getGameCodeFromURL(),
-    }));
-
-    if (xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        console.log(response);
-    }
-
     for(let i=0; i<GRID_SIZE; i++) {
         GRID.push([]);
         for(let j=0; j<GRID_SIZE; j++) {
@@ -201,8 +178,24 @@ function initializeBoard() {
 
     ctx.strokeStyle = "black";
     ctx.stroke();
-    // initializeGrid();
+
+    const gameCode = getGameCodeFromURL();
+    socket.emit('initialize', {gameCode: gameCode});
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", `http://${host}/get-game-state/${gameCode}`, false);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send();
+
+    if (xhr.status === 200) {
+        const response = JSON.parse(xhr.responseText);
+        GRID = response.grid;
+        turn = response.turn;
+    }
+
+    initializeGrid();
     canvas.addEventListener('click', addPiece, false);
+    const gameCodeElement = document.getElementById('game-code');
+    gameCodeElement.innerHTML = 'Secret Code: ' + gameCode;
 }
 
 window.onload = function() {
@@ -210,6 +203,27 @@ window.onload = function() {
 }
 
 socket.on('move', function(data) {
-    console.log(socket.id)
-    updateGrid(data.x, data.y);
+    updateGrid(data.x, data.y, data.turn);
+});
+
+socket.on('initialize', function(data) {
+    playerId = data.playerId;
+    const turn = data.turn;
+    const pieceInfo = document.getElementById('piece-info');
+    pieceInfo.innerHTML = 'Your Pieces: ' + (playerId % 2 === 0 ? 'Black' : 'White');
+    updateTurnInfo(turn);
+});
+
+socket.on('move-ack', function(data) {
+    const status = data.status;
+    if(status === 'success') {
+        updateGrid(data.x, data.y, data.turn);
+    } else if(status === 'failure') {
+        const msg = data.msg;
+        alert(msg);
+    }
+});
+
+socket.on('winner', function(data) {
+    alert('Player with ' + (data.winner % 2 === 0 ? 'black' : 'white') + ' pieces won!');
 });
