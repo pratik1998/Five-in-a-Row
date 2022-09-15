@@ -114,7 +114,7 @@ function updateGrid(x, y, turn, forceUpdate=false) {
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d');
         ctx.beginPath();
-        ctx.arc(gridApproxPosition[0], gridApproxPosition[1], HORIZONTAL_STEP_SIZE/2, 0, 2 * Math.PI, false);
+        ctx.arc(gridApproxPosition[0], gridApproxPosition[1], (HORIZONTAL_STEP_SIZE/2) * 0.7, 0, 2 * Math.PI, false);
         ctx.fillStyle = turn % 2 === 0 ? 'black' : 'white';
         ctx.fill();
         GRID[x][y] = turn % 2;
