@@ -161,7 +161,7 @@ app.get('/favicon.ico', (req, res) => {
 })
 
 app.get('/create-game', (req, res) => {
-    const gameCode = makeUniqueGameIds(5);
+    const gameCode = makeUniqueGameIds(10);
     const grid = createGrid();
     const gameState = {
         grid: grid,

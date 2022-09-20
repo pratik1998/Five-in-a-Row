@@ -9,6 +9,7 @@ let GRID = []
 const HORIZONTAL_STEP_SIZE = BOARD_WIDTH/GRID_SIZE;
 const VERTICAL_STEP_SIZE = BOARD_HEIGHT/GRID_SIZE;
 const REQUIRED_CONSECUTIVE_PIECES = 5;
+let turn = 0;
 
 var playerId = -1;
 
@@ -226,4 +227,5 @@ socket.on('move-ack', function(data) {
 
 socket.on('winner', function(data) {
     alert('Player with ' + (data.winner % 2 === 0 ? 'black' : 'white') + ' pieces won!');
+    window.location.replace(`http://${host}`);
 });
